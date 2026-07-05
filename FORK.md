@@ -242,6 +242,29 @@ project env (runners join `buoy_proxy` so the name resolves).
   plain S3 presigning, breaking every file fetch. It was mistakenly set to the
   R2 endpoint host during initial provisioning.
 
+## Stub runtime-shape fixes (post plan-unlock)
+
+Setting the team to a paid plan made previously-gated pages reachable and
+exposed EE stubs whose exports didn't match what the OSS tree value-imports
+(`ignoreBuildErrors` hides this class until runtime):
+
+- `ee/features/branding/lib/dataroom-viewer-layout.ts` — now exports the real
+  consts/functions AND the three zod schemas (`DataroomCardLayoutSchema`,
+  `DataroomViewerHeaderStyleSchema`, `DataroomViewerLayoutPresetSchema`); the
+  types-only stub crashed `/branding` client-side and 500'd
+  `/api/teams/:id/branding` (`undefined.optional()`).
+- `ee/features/branding/lib/dataroom-banner.ts` — `classifyDataroomBanner`
+  returns the real `{kind, src, youtubeId?}` shape (callers do `.kind`).
+- `lib/api/auth/restricted-tokens.ts` — real
+  `RestrictedTokenSubjectTypeSchema` (`user | machine`) +
+  `parseRestrictedTokenSubjectType`; the tokens API calls both.
+
+## Dockerfile: COPY --chown, not RUN chown -R
+
+`RUN chown -R nextjs:nodejs /app` duplicated ~5GB of copied files into a second
+image layer — 11GB images and an 8-minute chown per build. The runner stage now
+uses `COPY --chown` (and `--chmod` for the entrypoint); image is ~5.7GB.
+
 ## Tus upload endpoint (`/api/file/tus`) — R2 fixes
 
 - `ee/features/storage/s3-store.ts` (`MultiRegionS3Store`, the tus datastore) built

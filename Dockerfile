@@ -65,14 +65,17 @@ ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3000 HOSTNAME=0.0.0.0
 RUN groupadd -r nodejs && useradd -r -g nodejs -m nextjs
-COPY --from=build /app/node_modules ./node_modules
-COPY --from=build /app/.next ./.next
-COPY --from=build /app/public ./public
-COPY --from=build /app/package.json ./package.json
-COPY --from=build /app/next.config.mjs ./next.config.mjs
-COPY --from=build /app/prisma ./prisma
-COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
-RUN chmod +x /usr/local/bin/docker-entrypoint.sh && chown -R nextjs:nodejs /app
+# COPY --chown, NOT a trailing `RUN chown -R /app`: chown-ing ~5GB of copied
+# files in a RUN step duplicates every file into a second image layer (the
+# image doubled to 11GB and the step alone took 8+ minutes per build).
+COPY --from=build --chown=nextjs:nodejs /app/node_modules ./node_modules
+COPY --from=build --chown=nextjs:nodejs /app/.next ./.next
+COPY --from=build --chown=nextjs:nodejs /app/public ./public
+COPY --from=build --chown=nextjs:nodejs /app/package.json ./package.json
+COPY --from=build --chown=nextjs:nodejs /app/next.config.mjs ./next.config.mjs
+COPY --from=build --chown=nextjs:nodejs /app/prisma ./prisma
+COPY --chmod=755 docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chown nextjs:nodejs /app
 USER nextjs
 EXPOSE 3000
 ENTRYPOINT ["docker-entrypoint.sh"]
