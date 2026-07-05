@@ -25,55 +25,44 @@ export class MultiRegionS3Store extends S3Store {
     // Initialize with EU config as default
     const euConfig = getStorageConfig();
 
-    // Create S3 client config for super() call (omit endpoint if empty/undefined)
-    const superS3Config: any = {
-      bucket: euConfig.bucket,
-      region: euConfig.region,
-      credentials: {
-        accessKeyId: euConfig.accessKeyId,
-        secretAccessKey: euConfig.secretAccessKey,
-      },
-    };
-
     super({
       partSize: 8 * 1024 * 1024, // 8MiB parts
-      s3ClientConfig: superS3Config,
+      // R2 has no S3 object-tagging support; the default useTags=true sends
+      // an x-amz-tagging header on .info writes and R2 rejects it
+      useTags: false,
+      s3ClientConfig: MultiRegionS3Store.toS3ClientConfig(euConfig),
     });
 
     // Store configurations
     this.euConfig = euConfig;
 
-    // Create EU S3 client configuration (omit endpoint if empty/undefined)
-    const euS3Config: any = {
-      bucket: euConfig.bucket,
-      region: euConfig.region,
-      credentials: {
-        accessKeyId: euConfig.accessKeyId,
-        secretAccessKey: euConfig.secretAccessKey,
-      },
-    };
-
-    this.euClient = new S3(euS3Config);
+    this.euClient = new S3(MultiRegionS3Store.toS3ClientConfig(euConfig));
 
     // Initialize US configuration and client
     try {
       this.usConfig = getStorageConfig("us-east-2");
-
-      // Create US S3 client configuration (omit endpoint if empty/undefined)
-      const usS3Config: any = {
-        bucket: this.usConfig.bucket,
-        region: this.usConfig.region,
-        credentials: {
-          accessKeyId: this.usConfig.accessKeyId,
-          secretAccessKey: this.usConfig.secretAccessKey,
-        },
-      };
-
-      this.usClient = new S3(usS3Config);
+      this.usClient = new S3(
+        MultiRegionS3Store.toS3ClientConfig(this.usConfig),
+      );
     } catch (error) {
       this.usConfig = euConfig;
       this.usClient = this.euClient;
     }
+  }
+
+  // Endpoint must be forwarded for S3-compatible stores (e.g. R2); without it
+  // the SDK synthesizes <bucket>.s3.<region>.amazonaws.com, which for R2's
+  // region "auto" resolves nowhere (ENOTFOUND). Omit the key when unset.
+  private static toS3ClientConfig(config: StorageConfig): any {
+    return {
+      bucket: config.bucket,
+      region: config.region,
+      credentials: {
+        accessKeyId: config.accessKeyId,
+        secretAccessKey: config.secretAccessKey,
+      },
+      ...(config.endpoint ? { endpoint: config.endpoint } : {}),
+    };
   }
 
   /**

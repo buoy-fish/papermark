@@ -20,6 +20,21 @@ function isAnalyticsPath(path: string) {
 }
 
 function isCustomDomain(host: string) {
+  // buoy fork: our self-hosted app is served on a single host (e.g.
+  // paper.buoy.fish, inlined from the NEXT_PUBLIC_APP_BASE_HOST build arg) which
+  // is NOT a customer custom domain. Upstream only special-cases
+  // papermark.io/.com/*.vercel.app, so on any other host every request is routed
+  // to DomainMiddleware (the /view/domains viewer) and the dashboard + Cloudflare
+  // Access walk-in (AppMiddleware) are never reached — the app renders blank.
+  const appHost = process.env.NEXT_PUBLIC_APP_BASE_HOST?.toLowerCase().trim();
+  const requestHostname = host?.split(":")[0]?.toLowerCase().trim();
+  if (
+    appHost &&
+    (requestHostname === appHost || requestHostname === `www.${appHost}`)
+  ) {
+    return false;
+  }
+
   return (
     (process.env.NODE_ENV === "development" &&
       (host?.includes(".local") || host?.includes("papermark.dev"))) ||

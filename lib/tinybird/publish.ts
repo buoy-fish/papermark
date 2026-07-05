@@ -1,8 +1,9 @@
-import { Tinybird } from "@chronark/zod-bird";
+// buoy fork: self-hosted ClickHouse instead of Tinybird (TSML). Same interface.
 import { z } from "zod";
 
 import { VIDEO_EVENT_TYPES } from "../constants";
 import { WEBHOOK_TRIGGERS } from "../webhook/constants";
+import { Tinybird } from "./clickhouse";
 
 const tb = new Tinybird({ token: process.env.TINYBIRD_TOKEN! });
 

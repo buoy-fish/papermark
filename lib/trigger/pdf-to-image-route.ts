@@ -1,4 +1,5 @@
 import { AbortTaskRunError, logger, task } from "@trigger.dev/sdk";
+import { INTERNAL_BASE_URL } from "@/lib/internal-base-url";
 
 import { ONE_HOUR } from "@/lib/constants";
 import { isTrustedTeam } from "@/lib/edge-config/trusted-teams";
@@ -121,7 +122,7 @@ export const convertPdfToImageRoute = task({
 
       try {
         const response = await fetch(
-          `${process.env.NEXT_PUBLIC_BASE_URL}/api/mupdf/get-pages`,
+          `${INTERNAL_BASE_URL}/api/mupdf/get-pages`,
           {
             method: "POST",
             body: JSON.stringify({ url: signedUrl }),
@@ -207,7 +208,7 @@ export const convertPdfToImageRoute = task({
       try {
         // send page number to api/convert-page endpoint in a task and get back page img url
         const response = await fetch(
-          `${process.env.NEXT_PUBLIC_BASE_URL}/api/mupdf/convert-page`,
+          `${INTERNAL_BASE_URL}/api/mupdf/convert-page`,
           {
             method: "POST",
             body: JSON.stringify({
@@ -340,7 +341,7 @@ export const convertPdfToImageRoute = task({
 
     // initialize link revalidation for all the document's links
     await fetch(
-      `${process.env.NEXTAUTH_URL}/api/revalidate?secret=${process.env.REVALIDATE_TOKEN}&documentId=${documentId}`,
+      `${INTERNAL_BASE_URL}/api/revalidate?secret=${process.env.REVALIDATE_TOKEN}&documentId=${documentId}`,
     );
 
     updateStatus({

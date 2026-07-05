@@ -165,6 +165,10 @@ export default async function handle(
       const isDownloadOnlyByExtension =
         /\.(log|err|prj|jgw|tif|tiff|ecw|bak)$/i.test(url);
 
+      // Self-host: trigger.dev may be unreachable (jobs stack not deployed yet);
+      // the version is already persisted, so a failed trigger must not 500 the
+      // request — the version just stays "processing".
+      try {
       if (
         (type === "docs" || type === "slides") &&
         !isDownloadOnlyByExtension
@@ -234,6 +238,12 @@ export default async function handle(
             queue: conversionQueueName(team.plan),
             concurrencyKey: teamId,
           },
+        );
+      }
+      } catch (error) {
+        console.warn(
+          "[trigger.dev] failed to trigger conversion; version left unprocessed:",
+          error,
         );
       }
 

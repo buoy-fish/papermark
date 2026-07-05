@@ -65,8 +65,12 @@ const tusServer = new Server({
     return `${proto}://${host}${path}/${id}`;
   },
   getFileIdFromRequest(req) {
-    // Extract the ID from the URL
+    // Extract the ID from the URL; undefined (no id segment) lets @tus/server
+    // answer 404 instead of Buffer.from(undefined) crashing with a 500
     const id = (req.url as string).split("/api/file/tus/")[1];
+    if (!id) {
+      return undefined as unknown as string;
+    }
     return Buffer.from(id, "base64url").toString("utf-8");
   },
   onResponseError(req, res, err) {

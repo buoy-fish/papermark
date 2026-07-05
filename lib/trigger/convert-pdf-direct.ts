@@ -1,4 +1,5 @@
 import { AbortTaskRunError, logger, metadata, task } from "@trigger.dev/sdk";
+import { INTERNAL_BASE_URL } from "@/lib/internal-base-url";
 import { get } from "@vercel/edge-config";
 
 import { putFileServer } from "@/lib/files/put-file-server";
@@ -330,7 +331,7 @@ export const convertPdfDirectTask = task({
     setProgress({ progress: 95, text: "Revalidating..." });
 
     await fetch(
-      `${process.env.NEXTAUTH_URL}/api/revalidate?secret=${process.env.REVALIDATE_TOKEN}&documentId=${documentId}`,
+      `${INTERNAL_BASE_URL}/api/revalidate?secret=${process.env.REVALIDATE_TOKEN}&documentId=${documentId}`,
     );
 
     setProgress({ progress: 100, text: "Processing complete" });

@@ -1,4 +1,5 @@
 import { DocumentStorageType } from "@prisma/client";
+import { INTERNAL_BASE_URL } from "@/lib/internal-base-url";
 import { getDownloadUrl } from "@vercel/blob";
 import { match } from "ts-pattern";
 
@@ -93,7 +94,7 @@ const getFileFromS3 = async (
 
   if (isServer) {
     return fetchPresignedUrl(
-      `${process.env.NEXT_PUBLIC_BASE_URL}/api/file/s3/get-presigned-get-url`,
+      `${INTERNAL_BASE_URL}/api/file/s3/get-presigned-get-url`,
       {
         "Content-Type": "application/json",
         Authorization: `Bearer ${process.env.INTERNAL_API_KEY}`,

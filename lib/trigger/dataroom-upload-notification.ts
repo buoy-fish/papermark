@@ -1,4 +1,5 @@
 import { logger, task } from "@trigger.dev/sdk";
+import { INTERNAL_BASE_URL } from "@/lib/internal-base-url";
 
 import { dispatchNotification } from "@/lib/notifications/dispatch";
 import prisma from "@/lib/prisma";
@@ -88,7 +89,7 @@ export const sendDataroomUploadNotificationTask = task({
 
     try {
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_BASE_URL}/api/jobs/send-dataroom-upload-notification`,
+        `${INTERNAL_BASE_URL}/api/jobs/send-dataroom-upload-notification`,
         {
           method: "POST",
           body: JSON.stringify({

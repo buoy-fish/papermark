@@ -33,9 +33,11 @@ export class SlackClient {
     this.clientId = process.env.SLACK_CLIENT_ID as string;
     this.clientSecret = process.env.SLACK_CLIENT_SECRET as string;
 
-    if (!this.clientId || !this.clientSecret) {
-      throw new Error("SLACK_CLIENT_ID and SLACK_CLIENT_SECRET must be set");
-    }
+    // buoy fork: the Slack integration is disabled in self-host. Upstream throws
+    // here, but this client is constructed at module load on import paths that
+    // reach core routes (e.g. /api/views), so an unset key would break those
+    // routes (and `next build` collection). Tolerate missing config — actual
+    // Slack API calls (unused) would fail later with "Missing Slack access token".
   }
 
   // private decryptToken(accessToken: string): string {

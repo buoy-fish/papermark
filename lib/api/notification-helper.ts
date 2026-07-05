@@ -1,4 +1,5 @@
 import { log } from "@/lib/utils";
+import { INTERNAL_BASE_URL } from "@/lib/internal-base-url";
 
 export default async function sendNotification({
   viewId,
@@ -12,7 +13,7 @@ export default async function sendNotification({
     city: string;
   };
 }) {
-  return await fetch(`${process.env.NEXTAUTH_URL}/api/jobs/send-notification`, {
+  return await fetch(`${INTERNAL_BASE_URL}/api/jobs/send-notification`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -43,7 +44,7 @@ export async function sendViewerInvitation({
 }) {
   for (var i = 0; i < viewerIds.length; ++i) {
     await fetch(
-      `${process.env.NEXTAUTH_URL}/api/jobs/send-dataroom-view-invitation`,
+      `${INTERNAL_BASE_URL}/api/jobs/send-dataroom-view-invitation`,
       {
         method: "POST",
         headers: {

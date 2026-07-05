@@ -2,7 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { getToken } from "next-auth/jwt";
 
+import { CF_ACCESS_EMAIL_HEADER } from "@/lib/auth/cf-access";
+
 const LOGIN_PATH = "/login";
+// buoy fork: Cloudflare Access walk-in entry (see pages/sso.tsx + lib/auth/cf-access.ts).
+const WALKIN_PATH = "/sso";
 const DEFAULT_AUTH_REDIRECT_PATH = "/dashboard";
 
 function isProtocolRelativePath(path: string) {
@@ -61,8 +65,20 @@ export default async function AppMiddleware(req: NextRequest) {
     };
   };
 
-  // UNAUTHENTICATED if there's no token and the path isn't /login, redirect to /login
-  if (!token?.email && path !== LOGIN_PATH) {
+  // UNAUTHENTICATED if there's no token and the path isn't /login or /sso
+  if (!token?.email && path !== LOGIN_PATH && path !== WALKIN_PATH) {
+    // buoy fork: behind Cloudflare Access the request carries a verified email
+    // header (the Services Host origin is tunnel-only, so only Cloudflare can
+    // set it — ADR-0001). Walk the Member straight in via /sso instead of
+    // showing Papermark's own /login. With no header (local dev, or a public
+    // path that slipped through) fall back to the normal /login redirect.
+    if (req.headers.get(CF_ACCESS_EMAIL_HEADER)) {
+      const ssoUrl = new URL(WALKIN_PATH, req.url);
+      if (path !== "/") {
+        ssoUrl.searchParams.set("next", `${path}${url.search}`);
+      }
+      return NextResponse.redirect(ssoUrl);
+    }
     const loginUrl = new URL(LOGIN_PATH, req.url);
     // Append "next" parameter only if not navigating to the root
     if (path !== "/") {

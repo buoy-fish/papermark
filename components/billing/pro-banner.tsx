@@ -13,6 +13,11 @@ export default function ProBanner({
 }: {
   setShowProBanner: Dispatch<SetStateAction<boolean | null>>;
 }) {
+  // buoy fork: self-hosted deployment has no Stripe billing / plan tiers, so the
+  // "Papermark Business" upsell banner is never relevant — render nothing.
+  return null;
+
+  // eslint-disable-next-line no-unreachable
   const handleHideBanner = () => {
     setShowProBanner(false);
     Cookies.set("hideProBanner", "pro-banner", {

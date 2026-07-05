@@ -8,6 +8,12 @@ import GoogleProvider from "next-auth/providers/google";
 import LinkedInProvider from "next-auth/providers/linkedin";
 
 import { identifyUser, trackAnalytics } from "@/lib/analytics";
+import {
+  CF_ACCESS_EMAIL_HEADER,
+  isAllowedAccessEmail,
+  normalizeAccessEmail,
+  provisionAccessUser,
+} from "@/lib/auth/cf-access";
 import { qstash } from "@/lib/cron";
 import { sendVerificationRequestEmail } from "@/lib/emails/send-verification-request";
 import hanko from "@/lib/hanko";
@@ -16,6 +22,13 @@ import prisma from "@/lib/prisma";
 import { CustomUser } from "@/lib/types";
 
 const VERCEL_DEPLOYMENT = !!process.env.VERCEL_URL;
+// buoy fork: we serve HTTPS behind Cloudflare + Caddy but are NOT on Vercel, so
+// key secure-cookie behaviour off the public URL scheme, not VERCEL_URL. Upstream
+// only writes the __Secure- session cookie on Vercel; on our self-host that left
+// the session cookie as the non-secure `next-auth.session-token` while getToken()
+// (NEXTAUTH_URL is https) reads `__Secure-next-auth.session-token` — so the
+// Cloudflare Access walk-in never saw a session and looped /sso forever.
+const USE_SECURE_COOKIES = (process.env.NEXTAUTH_URL ?? "").startsWith("https://");
 
 function getMainDomainUrl(): string {
   if (process.env.NODE_ENV === "development") {
@@ -177,18 +190,40 @@ export const authOptions: NextAuthOptions = {
         }
       },
     }),
+    // buoy fork: Cloudflare Access walk-in (Trusted-Header tier, ADR-0002).
+    // Identity comes ONLY from the Cf-Access-Authenticated-User-Email header,
+    // which is unspoofable because the Services Host origin is tunnel-only
+    // (ADR-0001). The (empty) credentials field is ignored — a client cannot
+    // assert an identity, only the verified header can. See lib/auth/cf-access.ts.
+    CredentialsProvider({
+      id: "cf-access",
+      name: "Cloudflare Access",
+      credentials: {},
+      async authorize(_credentials, req) {
+        const email = normalizeAccessEmail(
+          req?.headers?.[CF_ACCESS_EMAIL_HEADER] as string | undefined,
+        );
+        if (
+          !isAllowedAccessEmail(email, process.env.PAPERMARK_SSO_ALLOWED_DOMAIN)
+        ) {
+          return null;
+        }
+        const user = await provisionAccessUser(prisma, email);
+        return { id: user.id, email: user.email, name: user.name } as any;
+      },
+    }),
   ],
   adapter: PrismaAdapter(prisma),
   session: { strategy: "jwt" },
   cookies: {
     sessionToken: {
-      name: `${VERCEL_DEPLOYMENT ? "__Secure-" : ""}next-auth.session-token`,
+      name: `${USE_SECURE_COOKIES ? "__Secure-" : ""}next-auth.session-token`,
       options: {
         httpOnly: true,
         sameSite: "lax",
         path: "/",
         domain: VERCEL_DEPLOYMENT ? ".papermark.com" : undefined,
-        secure: VERCEL_DEPLOYMENT,
+        secure: USE_SECURE_COOKIES,
       },
     },
   },

@@ -881,3 +881,10 @@ export default function ViewPage() {
     </div>
   );
 }
+
+// buoy fork: this EE branding/preview page renders stubbed EE modules (see
+// FORK.md) and cannot be statically prerendered. Force dynamic so `next build`
+// skips build-time prerender; the page is not part of the shipped feature set.
+export async function getServerSideProps() {
+  return { props: {} };
+}

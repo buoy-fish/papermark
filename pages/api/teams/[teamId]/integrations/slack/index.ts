@@ -70,7 +70,17 @@ async function handleGet(
   res: NextApiResponse,
   teamId: string,
 ) {
-  const env = getSlackEnv();
+  // buoy fork: Slack is an optional integration and unconfigured on this
+  // self-host. getSlackEnv() throws when its env vars are absent; answer the
+  // dashboard's load-time probe with 200/null ("not connected") — a 404 is
+  // functionally identical for useSlackIntegration but logs a failed-resource
+  // line in the browser console on every dashboard load.
+  let env;
+  try {
+    env = getSlackEnv();
+  } catch {
+    return res.status(200).json(null);
+  }
 
   try {
     const integrationFullData = await prisma.installedIntegration.findUnique({

@@ -1,4 +1,5 @@
 import { get } from "@vercel/edge-config";
+import { INTERNAL_BASE_URL } from "@/lib/internal-base-url";
 import { parsePageId } from "notion-utils";
 
 import { DocumentData } from "@/lib/documents/create-document";
@@ -187,6 +188,10 @@ export const processDocument = async ({
 
   // Trigger appropriate conversion tasks based on document type
   // Check if it's a Keynote file (slides type with Keynote content type)
+  // Self-host: trigger.dev may be unreachable (jobs stack not deployed yet); the
+  // document is already persisted, so a failed trigger must not 500 the request —
+  // the version just stays "processing" until conversion is re-triggered.
+  try {
   if (
     type === "slides" &&
     (contentType === "application/vnd.apple.keynote" ||
@@ -278,6 +283,12 @@ export const processDocument = async ({
       },
     );
   }
+  } catch (error) {
+    console.warn(
+      "[trigger.dev] failed to trigger conversion; document left unprocessed:",
+      error,
+    );
+  }
 
   if (type === "sheet" && enableExcelAdvancedMode) {
     await copyFileToBucketServer({
@@ -293,7 +304,7 @@ export const processDocument = async ({
 
     try {
       await fetch(
-        `${process.env.NEXTAUTH_URL}/api/revalidate?secret=${process.env.REVALIDATE_TOKEN}&documentId=${document.id}`,
+        `${INTERNAL_BASE_URL}/api/revalidate?secret=${process.env.REVALIDATE_TOKEN}&documentId=${document.id}`,
       );
     } catch (error) {
       console.error("Failed to revalidate document:", error);

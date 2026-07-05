@@ -1,4 +1,5 @@
 import { logger, schemaTask } from "@trigger.dev/sdk";
+import { INTERNAL_BASE_URL } from "@/lib/internal-base-url";
 import { z } from "zod";
 
 import prisma from "@/lib/prisma";
@@ -253,7 +254,7 @@ export const sendDataroomChangeNotificationTask = schemaTask({
         }
 
         const response = await fetch(
-          `${process.env.NEXT_PUBLIC_BASE_URL}/api/jobs/send-dataroom-new-document-notification`,
+          `${INTERNAL_BASE_URL}/api/jobs/send-dataroom-new-document-notification`,
           {
             method: "POST",
             body: JSON.stringify({

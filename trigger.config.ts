@@ -4,8 +4,12 @@ import { pythonExtension } from "@trigger.dev/python/extension";
 import { defineConfig, timeout } from "@trigger.dev/sdk";
 
 export default defineConfig({
-  project: "proj_plmsfqvqunboixacjjus",
-  dirs: ["./lib/trigger", "./ee/**/lib/trigger"],
+  // buoy.fish self-host: the "papermark" project on jobs.buoy.fish
+  project: "proj_qhaoaqnjfzzxibridnds",
+  // Self-host: only core conversion tasks. The ee/**/lib/trigger dirs are
+  // excluded — the AI tasks construct OpenAI clients at import and abort
+  // indexing without OPENAI_API_KEY, and all EE features are out of scope.
+  dirs: ["./lib/trigger"],
   maxDuration: timeout.None, // no max duration
   retries: {
     enabledInDev: false,

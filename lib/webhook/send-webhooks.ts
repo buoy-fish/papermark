@@ -1,4 +1,5 @@
 import { Webhook } from "@prisma/client";
+import { INTERNAL_BASE_URL } from "@/lib/internal-base-url";
 
 import { qstash } from "@/lib/cron";
 
@@ -74,7 +75,7 @@ const publishWebhookEventToQStash = async ({
   payload: WebhookPayload;
 }) => {
   const callbackUrl = new URL(
-    `${process.env.NEXT_PUBLIC_BASE_URL}/api/webhooks/callback`,
+    `${INTERNAL_BASE_URL}/api/webhooks/callback`,
   );
   callbackUrl.searchParams.append("webhookId", webhook.pId);
   callbackUrl.searchParams.append("eventId", payload.id);
