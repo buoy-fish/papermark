@@ -57,7 +57,11 @@ ENV OPENAI_API_KEY=sk-build-time-placeholder \
     GOOGLE_VERTEX_API_KEY=build-time-placeholder
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-RUN npx prisma generate && npm run build
+# `.next/cache` is webpack's incremental build cache (multi-GB) and is NOT used
+# at runtime. Dropping it before the runner COPYs `.next` shrinks the image and,
+# critically, avoids a disk-full failure while exporting that layer on the
+# shared Services Host (bit build9 + the 2026-07-07 branding rebuild).
+RUN npx prisma generate && npm run build && rm -rf .next/cache
 
 # ---- runner ----
 FROM base AS runner

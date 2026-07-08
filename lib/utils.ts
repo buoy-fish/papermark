@@ -565,6 +565,36 @@ export const uploadImage = async (
   file: File,
   uploadType: "profile" | "assets" = "assets",
 ) => {
+  // Self-host (R2/S3 transport): branding images are NOT stored in Vercel Blob.
+  // POST the raw bytes to our route, which uploads to the private R2 bucket
+  // under an `assets/` prefix and returns an app-relative path served publicly
+  // via /api/file/asset/*. See FORK.md ("branding image upload -> R2").
+  if (process.env.NEXT_PUBLIC_UPLOAD_TRANSPORT === "s3") {
+    const response = await fetch(
+      `/api/file/image-upload?type=${uploadType}`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": file.type || "application/octet-stream",
+          "x-file-name": encodeURIComponent(file.name),
+        },
+        body: file,
+      },
+    );
+
+    if (!response.ok) {
+      const error = (await response.json().catch(() => ({}))) as {
+        error?: string;
+      };
+      throw new Error(
+        error.error || `Image upload failed with status ${response.status}`,
+      );
+    }
+
+    const { url } = (await response.json()) as { url: string };
+    return url;
+  }
+
   const newBlob = await upload(file.name, file, {
     access: "public",
     handleUploadUrl: `/api/file/image-upload?type=${uploadType}`,

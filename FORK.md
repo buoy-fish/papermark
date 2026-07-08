@@ -258,12 +258,39 @@ exposed EE stubs whose exports didn't match what the OSS tree value-imports
 - `lib/api/auth/restricted-tokens.ts` — real
   `RestrictedTokenSubjectTypeSchema` (`user | machine`) +
   `parseRestrictedTokenSubjectType`; the tokens API calls both.
+- `ee/features/branding/lib/dataroom-preview-presets.ts` (2026-07-08) —
+  `getDataroomPreviewDataset` returned `{}`; `pages/room_ppreview_demo.tsx`
+  does `for (const f of previewDataset.folders)`, so `undefined` →
+  `TypeError: z is not iterable` → **500 on the Dataroom-View branding
+  preview** (the iframe on `/branding`). Now returns `{folders:[],
+  documents:[]}` (empty but iterable; preview renders branded chrome, no docs).
+- `lib/oauth/scopes.ts` (2026-07-08) — `PRESET_SCOPES` returned `{}` but
+  `pages/api/teams/[teamId]/tokens/index.ts` **array**-spreads it
+  (`[...PRESET_SCOPES, ...GRANULAR_SCOPES]`) on POST+PATCH → `not iterable` →
+  **every API-token create/edit 500'd**. Now `["apis.all","apis.read"]` (the
+  presets the handler special-cases); `GRANULAR_SCOPES` stays `[]`.
+
+**Sweep method (2026-07-08):** these two were found by auditing *every* `STUB
+(buoy fork)` export against its consumers for the same class — a thin stub value
+that a consumer ITERATES (`for..of`/`.map`/array-spread), calls a method on, or
+value-uses a type-only import of. Object-spread `{...stub()}` and pure
+destructuring are safe; only array-context iteration / method calls / type-only
+value-use crash. All other stubs (logo-tone, public-link-meta, request-lists
+SWR, limits, null components, noop trigger tasks) were verified safe as consumed.
 
 ## Dockerfile: COPY --chown, not RUN chown -R
 
 `RUN chown -R nextjs:nodejs /app` duplicated ~5GB of copied files into a second
 image layer — 11GB images and an 8-minute chown per build. The runner stage now
 uses `COPY --chown` (and `--chmod` for the entrypoint); image is ~5.7GB.
+
+Also: the build stage ends with `... && rm -rf .next/cache`. `.next/cache` is
+webpack's incremental build cache (multi-GB) and is **not** used at runtime, but
+the runner stage `COPY --from=build /app/.next` would otherwise pull it into the
+image. On the shared, disk-tight Services Host this blew the build up with *"no
+space left on device"* while exporting that layer (bit `build9` and again the
+2026-07-07 branding rebuild at ~2GB free). Stripping it shrinks the image and
+removes the disk-full failure mode.
 
 ## Tus upload endpoint (`/api/file/tus`) — R2 fixes
 
@@ -278,6 +305,50 @@ uses `COPY --chown` (and `--chmod` for the entrypoint); image is ~5.7GB.
 - `pages/api/file/tus/[[...file]].ts` — `getFileIdFromRequest` crashed with
   `Buffer.from(undefined)` (500) on requests with no id segment (e.g. plain
   `GET /api/file/tus`); now returns `undefined` so @tus/server answers 404.
+
+## Branding image upload (`/api/file/image-upload`) — R2, not Vercel Blob
+
+Upstream's `pages/api/file/image-upload.ts` was the **one** upload path never wired
+for S3/R2: it called `@vercel/blob/client`'s `handleUpload`, which needs
+`BLOB_READ_WRITE_TOKEN`. On the R2 self-host that's unset, so it threw *"Vercel
+Blob: Failed to retrieve the client token"* → the route returned **400** and the
+`/branding` logo/banner/OG-image uploader (and avatars, link previews, dataroom
+branding — every `uploadImage()` caller) silently failed. Documents were fine
+(tus + presigned R2); only these Vercel-Blob-only image uploads were broken.
+
+Branding assets are stored as a **URL string** in `Brand.logo`/`banner`/… and
+rendered as a direct `<img src>` on the **public** `/view` viewer pages, so the
+stored value must be a stable, publicly-loadable URL — not an expiring presigned
+GET (the document model). Fix keeps R2 private and serves through the app
+(ADR-0010: private buckets, viewer surface carved via Access *bypass*):
+
+- **`lib/utils.ts` `uploadImage()`** — when `NEXT_PUBLIC_UPLOAD_TRANSPORT === "s3"`,
+  POSTs the raw file bytes to `/api/file/image-upload?type=…` (Content-Type = file
+  MIME, `x-file-name` header) and returns the app-relative path the route gives
+  back. Falls through to the original Vercel Blob `upload()` otherwise. Signature
+  unchanged, so none of the ~17 callers were touched.
+- **`pages/api/file/image-upload.ts`** — rewritten. On `s3`: `bodyParser` off,
+  auth via session, validate `type` + Content-Type against the per-type
+  allow-list, stream the body into a Buffer with a hard size cap, `PutObject` to
+  the private bucket under **`assets/<uuid>/<slug><ext>`** with an immutable
+  `Cache-Control`, and return `{ url: "/api/file/asset/<key>" }`. The Vercel Blob
+  branch is retained for upstream parity but is dead on the R2 self-host (it needs
+  the parsed body).
+- **`pages/api/file/asset/[...key].ts`** (new) — public, unauthenticated GET/HEAD
+  that streams an object from the bucket. **Security contract:** it serves *only*
+  keys under the `assets/` prefix (rejects `..`), so private documents
+  (`<teamId>/<docId>/…`) can never be reached through it even though they share
+  the bucket. Long immutable `Cache-Control`.
+
+**Deploy dependency (Access):** `/api/file/asset` must be on the Cloudflare Access
+**bypass** list so anonymous `/view` recipients and external OG scrapers can load
+logos/banners. `/api/file/image-upload` (POST) stays **gated** — only authenticated
+members upload. No R2 CORS needed (browser fetches the app same-origin; the app
+fetches R2 server-side).
+
+**Known minor leak:** `branding.ts`'s `maybeDeleteBlobAsset` skips values starting
+with `/`, so replacing/removing a logo leaves the old `assets/…` object orphaned in
+R2 (tiny images; acceptable). Wire an R2 `DeleteObject` there if it ever matters.
 
 ## Custom domains on self-host (Vercel-free verification)
 
