@@ -279,6 +279,48 @@ uses `COPY --chown` (and `--chmod` for the entrypoint); image is ~5.7GB.
   `Buffer.from(undefined)` (500) on requests with no id segment (e.g. plain
   `GET /api/file/tus`); now returns `undefined` so @tus/server answers 404.
 
+## Custom domains on self-host (Vercel-free verification)
+
+Upstream attaches custom domains to a Vercel project and verifies them via the
+Vercel API (`lib/domains.ts` → `api.vercel.com`). Self-hosting there is no Vercel
+project, so those calls error and a domain is stuck **Invalid / "not verified yet"**
+forever — including `paper.buoy.fish` itself if it's added as a custom domain.
+
+- `lib/domains.ts` — added `isVercelConfigured()` (`PROJECT_ID_VERCEL` &&
+  `TEAM_ID_VERCEL` && `AUTH_BEARER_TOKEN`). When unset (our case) the four Vercel
+  helpers short-circuit to "healthy" shapes instead of calling Vercel:
+  `addDomainToVercel`/`getDomainResponse`/`verifyDomain` → `{ verified: true }`,
+  `getConfigResponse` → `{ misconfigured: false, conflicts: [] }`. This makes every
+  caller pass with **no per-caller edits**: the `/verify` endpoint, the add-domain
+  endpoint, and the daily re-check cron (`app/api/cron/domains/route.ts`) all read
+  these and mark the domain verified. On self-host a custom domain is served the
+  moment its DNS + tunnel + Caddy route exists, so "verified" is the truth.
+- Rationale: the domain is real infra (Cloudflare Tunnel → Caddy), not a Vercel
+  attachment. No DNS-record proof step is meaningful here.
+
+## `papermark.com` label vs. the internal default-domain sentinel
+
+`"papermark.com"` is overloaded upstream: (a) an **internal sentinel** meaning
+"default domain / no custom domain" (compared as `domain === "papermark.com"`;
+the real link URL is built from `NEXT_PUBLIC_MARKETING_URL`), and (b) a **shown
+label**. We change only the *visible* strings to the actual deployment host, and
+keep the sentinel string untouched (renaming it risks breaking default-vs-custom
+detection across the API/webhook/cron contract). Visible strings now read
+`process.env.NEXT_PUBLIC_APP_BASE_HOST || "papermark.com"` (env-driven, portable):
+
+- `components/links/link-sheet/domain-section.tsx` — default `<SelectItem>` label
+  (kept `value="papermark.com"`; `SelectValue` mirrors the child into the trigger).
+- `ee/features/workflows/pages/workflow-new.tsx` — same default `<SelectItem>` label.
+- `components/settings/og-preview.tsx` — the social-card `hostname`.
+- `lib/api/views/send-webhook-event.ts` + `lib/webhook/triggers/link-created.ts` —
+  the webhook `url` (was hardcoded `https://www.papermark.com/view/...`, now
+  `NEXT_PUBLIC_MARKETING_URL`) and `domain` fields for default-domain links.
+
+Left as `"papermark.com"` on purpose: all sentinel comparisons, the cron skip-list
+`["papermark.io","papermark.com"]`, `middleware.ts` `isCustomDomain`, external
+`www.papermark.com/help/...` links, `@papermark.com` placeholder emails, and email
+template default props.
+
 ---
 
 ## Runtime services this fork expects (self-host)

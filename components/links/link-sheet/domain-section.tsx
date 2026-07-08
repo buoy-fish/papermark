@@ -215,8 +215,11 @@ export default function DomainSection({
             <SelectValue placeholder="Select a domain" />
           </SelectTrigger>
           <SelectContent className="flex w-full rounded-md border border-input bg-white text-foreground placeholder-muted-foreground focus:border-muted-foreground focus:outline-none focus:ring-inset focus:ring-muted-foreground dark:border-gray-500 dark:bg-gray-800 focus:dark:bg-transparent sm:text-sm">
+            {/* value stays "papermark.com" — the internal sentinel for "default
+                domain / no custom domain". Only the shown label reflects the actual
+                deployment host (SelectValue mirrors this child into the trigger). */}
             <SelectItem value="papermark.com" className="hover:bg-muted">
-              papermark.com
+              {process.env.NEXT_PUBLIC_APP_BASE_HOST || "papermark.com"}
             </SelectItem>
             {linkType === "DOCUMENT_LINK" && (
               <>

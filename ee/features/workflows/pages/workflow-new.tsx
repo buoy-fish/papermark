@@ -136,7 +136,9 @@ export default function NewWorkflowPage() {
                     <SelectValue placeholder="papermark.com (default)" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="papermark.com">papermark.com</SelectItem>
+                    <SelectItem value="papermark.com">
+                      {process.env.NEXT_PUBLIC_APP_BASE_HOST || "papermark.com"}
+                    </SelectItem>
                     {domains?.map((d) => (
                       <SelectItem key={d.id} value={d.slug}>
                         {d.slug}

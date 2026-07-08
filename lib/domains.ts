@@ -4,7 +4,23 @@ import {
   DomainVerificationResponse,
 } from "@/lib/types";
 
+/**
+ * Self-host fork: on Vercel, custom domains are attached to a Vercel project and
+ * verified via the Vercel API. Self-hosting behind our own DNS + Cloudflare Tunnel
+ * + Caddy, there is no Vercel project — the domain is already served the moment its
+ * DNS/tunnel/Caddy route exists. When the Vercel env is absent we short-circuit the
+ * Vercel API helpers to "healthy" responses so every caller (the /verify endpoint,
+ * the add-domain endpoint, and the re-check cron) treats custom domains as valid.
+ */
+const isVercelConfigured = (): boolean =>
+  !!process.env.PROJECT_ID_VERCEL &&
+  !!process.env.TEAM_ID_VERCEL &&
+  !!process.env.AUTH_BEARER_TOKEN;
+
 export const addDomainToVercel = async (domain: string) => {
+  if (!isVercelConfigured()) {
+    return { name: domain.toLowerCase(), verified: true } as any;
+  }
   return await fetch(
     `https://api.vercel.com/v10/projects/${process.env.PROJECT_ID_VERCEL}/domains?teamId=${process.env.TEAM_ID_VERCEL}`,
     {
@@ -63,6 +79,13 @@ export const removeDomainFromVercel = async (
 export const getDomainResponse = async (
   domain: string,
 ): Promise<DomainResponse & { error: { code: string; message: string } }> => {
+  if (!isVercelConfigured()) {
+    return {
+      name: domain.toLowerCase(),
+      apexName: getApexDomain(`https://${domain}`),
+      verified: true,
+    } as any;
+  }
   return await fetch(
     `https://api.vercel.com/v9/projects/${process.env.PROJECT_ID_VERCEL}/domains/${domain.toLowerCase()}?teamId=${process.env.TEAM_ID_VERCEL}`,
     {
@@ -80,6 +103,9 @@ export const getDomainResponse = async (
 export const getConfigResponse = async (
   domain: string,
 ): Promise<DomainConfigResponse> => {
+  if (!isVercelConfigured()) {
+    return { configuredBy: null, misconfigured: false, conflicts: [] } as any;
+  }
   return await fetch(
     `https://api.vercel.com/v6/domains/${domain.toLowerCase()}/config?teamId=${process.env.TEAM_ID_VERCEL}`,
     {
@@ -95,6 +121,9 @@ export const getConfigResponse = async (
 export const verifyDomain = async (
   domain: string,
 ): Promise<DomainVerificationResponse> => {
+  if (!isVercelConfigured()) {
+    return { verified: true } as any;
+  }
   return await fetch(
     `https://api.vercel.com/v9/projects/${process.env.PROJECT_ID_VERCEL}/domains/${domain.toLowerCase()}/verify?teamId=${process.env.TEAM_ID_VERCEL}`,
     {
