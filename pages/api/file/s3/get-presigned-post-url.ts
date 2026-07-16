@@ -5,6 +5,7 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { getServerSession } from "next-auth";
 import path from "node:path";
 
+import { hashToken } from "@/lib/api/auth/token";
 import { ONE_HOUR, ONE_SECOND } from "@/lib/constants";
 import { getTeamS3ClientAndConfig } from "@/lib/files/aws-client";
 import { buildContentDisposition, safeSlugify } from "@/lib/utils";
@@ -28,17 +29,43 @@ export default async function handler(
     docId: string;
   };
 
-  const session = await getServerSession(req, res, authOptions);
-  if (!session) {
-    return res.status(401).end("Unauthorized");
+  // Auth: a restricted API token (machine callers such as app.buoy.fish) OR a
+  // browser session. Bearer is checked FIRST and never falls through to the
+  // session flow — behind Cloudflare Access getServerSession would bounce a
+  // machine call to an HTML login page. Mirrors the documents route.
+  const authHeader = req.headers.authorization;
+  let userId: string;
+
+  if (authHeader?.startsWith("Bearer ")) {
+    const token = authHeader.replace("Bearer ", "");
+    const restrictedToken = await prisma.restrictedToken.findUnique({
+      where: { hashedKey: hashToken(token) },
+      select: { userId: true, teamId: true },
+    });
+    if (!restrictedToken) {
+      return res.status(401).end("Unauthorized");
+    }
+    // The token is bound to one team; it may only upload into that team.
+    if (restrictedToken.teamId !== teamId) {
+      return res.status(401).end("Unauthorized");
+    }
+    userId = restrictedToken.userId;
+  } else {
+    const session = await getServerSession(req, res, authOptions);
+    if (!session) {
+      return res.status(401).end("Unauthorized");
+    }
+    userId = (session.user as CustomUser).id;
   }
 
+  // The token's user must still be a member of the team (membership is the
+  // authority, not the token alone).
   const team = await prisma.team.findUnique({
     where: {
       id: teamId,
       users: {
         some: {
-          userId: (session.user as CustomUser).id,
+          userId,
         },
       },
     },
