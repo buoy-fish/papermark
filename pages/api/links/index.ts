@@ -11,7 +11,9 @@ import {
   getAllowedDataroomIds,
 } from "@/lib/api/rbac/entitlements";
 import { isDataroomScopedRole } from "@/lib/api/rbac/permissions";
+import { hashToken } from "@/lib/api/auth/token";
 import { errorhandler } from "@/lib/errorHandler";
+import { INTERNAL_BASE_URL } from "@/lib/internal-base-url";
 import prisma from "@/lib/prisma";
 import { CustomUser, WatermarkConfigSchema } from "@/lib/types";
 import {
@@ -64,11 +66,6 @@ export default async function handler(
 ) {
   // POST /api/links
   if (req.method === "POST") {
-    const session = await getServerSession(req, res, authOptions);
-    if (!session) {
-      return res.status(401).end("Unauthorized");
-    }
-
     const {
       targetId,
       linkType,
@@ -79,7 +76,34 @@ export default async function handler(
       ...linkDomainData
     } = req.body;
 
-    const userId = (session.user as CustomUser).id;
+    // Auth: a restricted API token (machine callers such as app.buoy.fish) OR a
+    // browser session. Bearer is checked FIRST and never falls through to the
+    // session flow — behind Cloudflare Access getServerSession would bounce a
+    // machine call to an HTML login page. Mirrors the documents route.
+    const authHeader = req.headers.authorization;
+    let userId: string;
+
+    if (authHeader?.startsWith("Bearer ")) {
+      const token = authHeader.replace("Bearer ", "");
+      const restrictedToken = await prisma.restrictedToken.findUnique({
+        where: { hashedKey: hashToken(token) },
+        select: { userId: true, teamId: true },
+      });
+      if (!restrictedToken) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      // The token is bound to one team; the link must be created in it.
+      if (restrictedToken.teamId !== teamId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      userId = restrictedToken.userId;
+    } else {
+      const session = await getServerSession(req, res, authOptions);
+      if (!session) {
+        return res.status(401).end("Unauthorized");
+      }
+      userId = (session.user as CustomUser).id;
+    }
 
     const dataroomLink = linkType === "DATAROOM_LINK";
     const documentLink = linkType === "DOCUMENT_LINK";
@@ -486,10 +510,17 @@ export default async function handler(
         }),
       );
 
-      // Revalidate the view page to pre-generate it
-      await fetch(
-        `${process.env.NEXTAUTH_URL}/api/revalidate?secret=${process.env.REVALIDATE_TOKEN}&linkId=${linkWithView.id}&hasDomain=${linkWithView.domainId ? "true" : "false"}`,
-      );
+      // Revalidate the view page to pre-generate it. Self-fetch: behind
+      // Cloudflare Access NEXTAUTH_URL bounces to an HTML login page, so use
+      // INTERNAL_BASE_URL, and never let a revalidate failure fail link
+      // creation — a headless bearer caller has no browser to retry.
+      try {
+        await fetch(
+          `${INTERNAL_BASE_URL}/api/revalidate?secret=${process.env.REVALIDATE_TOKEN}&linkId=${linkWithView.id}&hasDomain=${linkWithView.domainId ? "true" : "false"}`,
+        );
+      } catch (err) {
+        console.error("link revalidate failed (non-fatal):", err);
+      }
 
       // Decrypt the password for the new link
       if (linkWithView.password !== null) {

@@ -400,3 +400,27 @@ Postgres · Cloudflare R2 (S3 transport) · Resend · self-hosted Redis via SRH
 (rate-limit / job store / tus locker) · self-hosted trigger.dev v4
 (PDF→image conversion) · self-hosted ClickHouse (analytics) · Gotenberg
 (DOCX/PPTX/XLSX). See `sign.buoy.fish/compose.yaml` + `.env.example`.
+
+---
+
+## Machine link-create + report-view webhook (buoy.fish, ADR-0012)
+
+Two additions so `app.buoy.fish` can deliver efficacy reports as tracked links:
+
+- **Bearer auth on `POST /api/links`** (`pages/api/links/index.ts`). The route was
+  session-only; it now accepts an `Authorization: Bearer <restricted-token>`,
+  mirroring the documents route (hash → `restrictedToken` lookup → assert
+  `restrictedToken.teamId === body.teamId`). Bearer is checked BEFORE
+  `getServerSession` — behind CF Access the session flow would bounce a machine
+  call to an HTML login page. The caller sends `{ targetId, linkType:
+  "DOCUMENT_LINK", teamId, emailProtected, emailAuthenticated, allowDownload }`.
+  The post-create `/api/revalidate` self-fetch was switched from `NEXTAUTH_URL`
+  to `INTERNAL_BASE_URL` and wrapped in try/catch (a headless caller has no
+  browser to survive the CF Access bounce, and revalidate must not fail the create).
+
+- **Outbound report webhook on view** (`lib/webhook/report-view.ts`, fired from
+  `app/api/views/route.ts` in the `if (newView)` block). A single global,
+  env-configured, direct-`fetch` webhook — NOT the per-team QStash pipeline
+  (which is plan-gated and DB-configured). Reuses `createWebhookSignature`;
+  sends `X-Papermark-Signature: sha256=<hex>` over the exact body. No-op unless
+  `REPORT_WEBHOOK_URL` + `REPORT_WEBHOOK_SECRET` are set (see `.env.example`).

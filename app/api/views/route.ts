@@ -34,6 +34,7 @@ import {
 } from "@/lib/signing/agreements";
 import { recordLinkView } from "@/lib/tracking/record-link-view";
 import { CustomUser, WatermarkConfigSchema } from "@/lib/types";
+import { sendReportViewWebhook } from "@/lib/webhook/report-view";
 import { checkPassword, decryptEncrpytedPassword, log } from "@/lib/utils";
 import { isEmailMatched } from "@/lib/utils/email-domain";
 import { generateOTP } from "@/lib/utils/generate-otp";
@@ -890,6 +891,18 @@ export async function POST(request: NextRequest) {
             teamId: link.teamId!,
             enableNotification: link.enableNotification,
             isPaused,
+          }),
+        );
+        // buoy.fish (ADR-0012): tell app.buoy.fish who opened a tracked report
+        // link. Global, env-configured, direct-fetch — independent of the
+        // per-team QStash webhook pipeline. No-op unless REPORT_WEBHOOK_* is set.
+        waitUntil(
+          sendReportViewWebhook({
+            viewId: newView.id,
+            linkId,
+            documentId,
+            viewerEmail: effectiveEmail ?? undefined,
+            viewedAt: new Date(),
           }),
         );
         if (!isPreview) {
