@@ -407,6 +407,15 @@ Postgres · Cloudflare R2 (S3 transport) · Resend · self-hosted Redis via SRH
 
 Two additions so `app.buoy.fish` can deliver efficacy reports as tracked links:
 
+- **Bearer auth on `POST /api/file/s3/get-presigned-post-url`**
+  (`pages/api/file/s3/get-presigned-post-url.ts`). Machine callers upload the same
+  way the browser does: presign -> PUT -> create document. Same bearer pattern;
+  the token's team must match `body.teamId` AND its user must still be a team
+  member. This is the ONLY sanctioned way to get a file into Papermark storage:
+  `documentUploadSchema` requires `url` to be an **internal S3 path**
+  (`<teamId>/doc_<id>/<name>.<ext>`, `storageType: "S3_PATH"`), never an external
+  URL — Papermark does not fetch remote files for non-`link` document types.
+
 - **Bearer auth on `POST /api/links`** (`pages/api/links/index.ts`). The route was
   session-only; it now accepts an `Authorization: Bearer <restricted-token>`,
   mirroring the documents route (hash → `restrictedToken` lookup → assert
