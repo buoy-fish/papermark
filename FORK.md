@@ -517,3 +517,32 @@ separately.
 (like `/api/links/download` and `/api/views`) or funders get bounced to the
 Access login. App side: `app.buoy.fish` receives `share_requested` at
 `/api/papermark/webhook` (already built) and mints + emails the new link.
+
+## Viewer: skip OTP with an emailed-view token (buoy.fish, ADR-0012 slice 4)
+
+app.buoy.fish composes the funder's email, so it can embed a signed, expiring
+token (`?vt=`) proving the tracked link reached that inbox — the same trust the
+OTP gives, at send time. On first open the recipient lands on the report with no
+code; a missing/expired/mismatched token falls straight through to the normal
+OTP flow.
+
+- `lib/auth/view-token.ts` (added) — `verifyEmailedViewToken(vt, linkId)`:
+  constant-time HMAC over the base64 string, exp + linkId checks, returns the
+  bound email or null. Secret `VIEW_TOKEN_SECRET` (env; hand-managed in the box
+  `.env`, mirrors bao `secret/app/papermark → email_link_token_secret`). Format:
+  `base64url(JSON{e,l,exp,n}) . hex(HMAC-SHA256(secret, base64url))` — signed over
+  the base64 STRING so there's no JSON canonicalization to keep in step with the
+  Elixir minter (cross-language parity verified).
+- `app/api/views/route.ts` (patched) — a `vt` branch BEFORE the OTP-request
+  branch: valid token whose email matches the submitted email mints the SAME 23h
+  `link-verification` row the code path mints (so `pm_vft` + revisits work
+  token-free) and sets `isEmailVerified`. The OTP-request branch now also guards
+  on `!isEmailVerified`, so a valid token doesn't also fire a code email. IP
+  rate-limited like the other verify paths.
+- `components/view/document-view.tsx` (patched) — reads `vt` from the URL,
+  decodes the email client-side (prefill only; the server verifies), includes it
+  in the `/api/views` POST, auto-submits on first open, and `router.replace`s the
+  token out of the URL once consumed.
+
+⚠️ Deploy: set `VIEW_TOKEN_SECRET` in the box `.env` to the SAME value as bao
+`email_link_token_secret`, then rebuild. Distinct from `REPORT_WEBHOOK_SECRET`.
