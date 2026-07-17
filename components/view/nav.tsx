@@ -12,6 +12,7 @@ import {
   Download,
   Maximize,
   MessageCircle,
+  Printer,
   Slash,
   ZoomInIcon,
   ZoomOutIcon,
@@ -19,7 +20,10 @@ import {
 import { toast } from "sonner";
 
 import { createAdaptiveSurfacePalette } from "@/lib/utils/create-adaptive-surface-palette";
-import { downloadFromLinkEndpoint } from "@/lib/utils/download-document";
+import {
+  downloadFromLinkEndpoint,
+  printFromLinkEndpoint,
+} from "@/lib/utils/download-document";
 
 import {
   DropdownMenu,
@@ -158,6 +162,27 @@ export default function Nav({
     });
   };
 
+  // buoy fork: print opens the original PDF in a new tab for the browser's
+  // native print. Rides the same allowDownload gate and download endpoint.
+  const printFile = async () => {
+    if (isPreview) {
+      toast.error(t("toasts.cannotDownloadPreview", "You cannot download documents in preview mode."));
+      return;
+    }
+    if (!allowDownload || type === "notion") return;
+
+    const printPromise = printFromLinkEndpoint({
+      endpoint: "/api/links/download",
+      body: { linkId, viewId },
+    });
+
+    toast.promise(printPromise, {
+      loading: t("toasts.preparingPrint", "Opening for printing..."),
+      success: t("toasts.printReady", "Opened in a new tab — use your browser's print"),
+      error: (err) => err.message || t("toasts.printFailed", "Failed to open for printing"),
+    });
+  };
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Toggle conversations with 'c' key
@@ -197,10 +222,13 @@ export default function Nav({
       <div className="mx-auto px-2 sm:px-6 lg:px-8">
         <div className="relative flex h-16 items-center justify-between">
           <div className="flex flex-1 items-center justify-start">
-            <div className="relative flex h-16 w-36 flex-shrink-0 items-center">
+            <div className="relative flex h-16 max-w-[10rem] flex-shrink-0 items-center py-3">
               {brand && brand.logo ? (
+                // buoy fork: the logo breathes — h-16 filled the whole 64px bar
+                // edge to edge; h-9 inside py-3 leaves whitespace above and below
+                // (mirrors the access-form logo sizing).
                 <img
-                  className="h-16 w-36 object-contain"
+                  className="h-9 w-auto max-w-[10rem] object-contain"
                   src={brand.logo}
                   alt="Logo"
                   // fill
@@ -320,14 +348,24 @@ export default function Nav({
             ) : null}
 
             {allowDownload ? (
-              <Button
-                onClick={downloadFile}
-                className="size-8 bg-gray-900 text-white hover:bg-gray-900/80 sm:size-10"
-                size="icon"
-                title={t("nav.downloadDocument", "Download document")}
-              >
-                <Download className="size-4 sm:size-5" />
-              </Button>
+              <>
+                <Button
+                  onClick={printFile}
+                  className="size-8 bg-gray-900 text-white hover:bg-gray-900/80 sm:size-10"
+                  size="icon"
+                  title={t("nav.printDocument", "Print document")}
+                >
+                  <Printer className="size-4 sm:size-5" />
+                </Button>
+                <Button
+                  onClick={downloadFile}
+                  className="size-8 bg-gray-900 text-white hover:bg-gray-900/80 sm:size-10"
+                  size="icon"
+                  title={t("nav.downloadDocument", "Download document")}
+                >
+                  <Download className="size-4 sm:size-5" />
+                </Button>
+              </>
             ) : null}
 
             {!isMobile && handleZoomIn && handleZoomOut && (

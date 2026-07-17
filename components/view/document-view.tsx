@@ -98,7 +98,8 @@ export default function DocumentView({
   annotationsEnabled?: boolean;
   textSelectionEnabled?: boolean;
 }) {
-  useDisablePrint();
+  // Links that allow download may also print; others keep the print block.
+  useDisablePrint({ enabled: !link.allowDownload });
   const {
     document,
     emailProtected,

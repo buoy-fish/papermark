@@ -62,6 +62,45 @@ export async function downloadFromLinkEndpoint({
   }, 100);
 }
 
+/**
+ * buoy fork: open the original PDF in a new tab for the browser's native print.
+ * The viewer renders converted page IMAGES, so there is nothing paginated to
+ * print in place; the original file (same one the Download button serves) is
+ * the printable artifact. Handles both response shapes like the download util.
+ */
+export async function printFromLinkEndpoint({
+  endpoint,
+  body,
+}: {
+  endpoint: string;
+  body: Record<string, unknown>;
+}): Promise<void> {
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.error || "Failed to open for printing");
+  }
+
+  const contentType = response.headers.get("content-type");
+
+  if (contentType?.includes("application/json")) {
+    const { downloadUrl } = (await response.json()) as { downloadUrl: string };
+    window.open(downloadUrl, "_blank", "noopener,noreferrer");
+    return;
+  }
+
+  const blob = await response.blob();
+  const objectUrl = window.URL.createObjectURL(blob);
+  window.open(objectUrl, "_blank", "noopener,noreferrer");
+  // The new tab holds its own reference; revoke ours after it has loaded.
+  setTimeout(() => window.URL.revokeObjectURL(objectUrl), 60000);
+}
+
 function triggerDownloadFromUrl(url: string): void {
   const iframe = window.document.createElement("iframe");
   iframe.style.display = "none";
