@@ -92,7 +92,7 @@ export default function CustomDomainSetup({
               {hasAccess ? (
                 <Button
                   className="rounded bg-black text-center text-xs font-semibold text-white no-underline"
-                  href={`https://app.papermark.com/settings/domains`}
+                  href={`https://paper.buoy.fish/settings/domains`}
                   style={{ padding: "12px 20px" }}
                 >
                   Set up your custom domain
@@ -100,7 +100,7 @@ export default function CustomDomainSetup({
               ) : (
                 <Button
                   className="rounded bg-black text-center text-xs font-semibold text-white no-underline"
-                  href={`https://app.papermark.com/settings/upgrade`}
+                  href={`https://paper.buoy.fish/settings/upgrade`}
                   style={{ padding: "12px 20px" }}
                 >
                   Upgrade to use custom domains
@@ -124,7 +124,7 @@ export default function CustomDomainSetup({
                 <>
                   Want to learn more about our plans?{" "}
                   <Link
-                    href="https://app.papermark.com/settings/upgrade"
+                    href="https://paper.buoy.fish/settings/upgrade"
                     className="font-medium text-blue-600 no-underline"
                   >
                     View pricing

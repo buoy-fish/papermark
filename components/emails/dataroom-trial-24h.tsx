@@ -40,7 +40,7 @@ const DataroomTrial24hReminderEmail = ({ name }: TrialEndReminderEmail) => {
             <Text className="text-sm leading-6 text-black">
               Your Papermark Data Room Plus plan trial expires in 24 hours.
               Don&apos;t lose access to these features -{" "}
-              <Link href={`https://app.papermark.com/settings/billing`}>
+              <Link href={`https://paper.buoy.fish/settings/billing`}>
                 upgrade today
               </Link>
               :
@@ -68,7 +68,7 @@ const DataroomTrial24hReminderEmail = ({ name }: TrialEndReminderEmail) => {
             <Section className="mb-[32px] mt-[32px] text-center">
               <Button
                 className="rounded bg-black text-center text-xs font-semibold text-white no-underline"
-                href={`https://app.papermark.com/settings/billing`}
+                href={`https://paper.buoy.fish/settings/billing`}
                 style={{ padding: "12px 20px" }}
               >
                 Upgrade now

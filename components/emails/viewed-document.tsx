@@ -63,9 +63,9 @@ export default function ViewedDocument({
               <Button
                 className="rounded bg-black text-center text-xs font-semibold text-white no-underline"
                 // buoy fork: link to OUR dashboard (paper.buoy.fish), not
-                // upstream's hosted app.papermark.com. NEXT_PUBLIC_MARKETING_URL
+                // upstream's hosted paper.buoy.fish. NEXT_PUBLIC_MARKETING_URL
                 // is a build arg = https://paper.buoy.fish (compose.yaml).
-                href={`${process.env.NEXT_PUBLIC_MARKETING_URL || "https://app.papermark.com"}/documents/${documentId}`}
+                href={`${process.env.NEXT_PUBLIC_MARKETING_URL || "https://paper.buoy.fish"}/documents/${documentId}`}
                 style={{ padding: "12px 20px" }}
               >
                 See my document insights

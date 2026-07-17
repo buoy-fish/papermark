@@ -25,8 +25,8 @@ export default function DataroomDigestNotification({
     { documentName: "Document C" },
   ],
   senderEmail,
-  url = "https://app.papermark.com/datarooms/123",
-  preferencesUrl = "https://app.papermark.com/notification-preferences?token=abc",
+  url = "https://paper.buoy.fish/datarooms/123",
+  preferencesUrl = "https://paper.buoy.fish/notification-preferences?token=abc",
   frequency = "daily",
 }: {
   dataroomName: string;

@@ -41,7 +41,7 @@ const DataroomTrialEnd = ({ name }: DataroomTrialEnd) => {
               Your Papermark Data Room Plus trial has expired.
               <br />
               <Link
-                href={`https://app.papermark.com/settings/billing`}
+                href={`https://paper.buoy.fish/settings/billing`}
                 className="underline"
               >
                 Upgrade now
@@ -68,7 +68,7 @@ const DataroomTrialEnd = ({ name }: DataroomTrialEnd) => {
             <Section className="my-8 text-center">
               <Button
                 className="rounded bg-black text-center text-xs font-semibold text-white no-underline"
-                href={`https://app.papermark.com/settings/billing`}
+                href={`https://paper.buoy.fish/settings/billing`}
                 style={{ padding: "12px 20px" }}
               >
                 Upgrade now

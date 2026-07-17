@@ -253,7 +253,7 @@ export default function PapermarkYearInReviewEmail({
                 Share your stats
               </Link>
               <Link
-                href="https://app.papermark.com/documents"
+                href="https://paper.buoy.fish/documents"
                 className="mt-4 block items-center text-center text-sm font-bold text-gray-900 no-underline"
               >
                 Go to your dashboard

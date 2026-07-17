@@ -41,7 +41,7 @@ export function EmailUpdated({
             <Text className="text-sm leading-6 text-black">
               If you did not make this change, please contact our support team
               or{" "}
-              <Link href="https://app.papermark.com/account/general">
+              <Link href="https://paper.buoy.fish/account/general">
                 update your email address
               </Link>
               .
