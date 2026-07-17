@@ -95,6 +95,28 @@ export default async function AppMiddleware(req: NextRequest) {
   }
 
   if (!token?.email && path === LOGIN_PATH) {
+    // buoy fork: a CF-verified Member stranded on /login (e.g. after a
+    // transient walk-in failure) gets walked in again via /sso. Skip when the
+    // URL carries an "error" param — /sso's own failure screen links here as
+    // /login?error=walkin_failed (and redirect-mode NextAuth flows land on
+    // /login?error=...), so re-walking those would loop.
+    if (
+      req.headers.get(CF_ACCESS_EMAIL_HEADER) &&
+      !url.searchParams.has("error")
+    ) {
+      const ssoUrl = new URL(WALKIN_PATH, req.url);
+      const loginNextPath = url.searchParams.get("next");
+      if (loginNextPath) {
+        // Same-origin-validate before forwarding — /login?next=<external>
+        // must not become an /sso open redirect.
+        ssoUrl.searchParams.set(
+          "next",
+          normalizeNextPath(loginNextPath, req.url),
+        );
+      }
+      return NextResponse.redirect(ssoUrl);
+    }
+
     const rawNextPath = url.searchParams.get("next");
 
     if (rawNextPath) {

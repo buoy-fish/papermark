@@ -25,6 +25,12 @@ export default function App({
   pageProps: { session, ...pageProps },
   router,
 }: AppProps<{ session: Session }>) {
+  // Public /view pages must never mount dashboard providers (TeamProvider et al.)
+  // that fetch Access-gated APIs. EXCLUDED_PATHS only exact-matches "/view", but
+  // real viewer routes are templates like "/view/[linkId]" and
+  // "/view/domains/[domain]/[slug]", so match the whole /view subtree.
+  const isViewerPath =
+    router.pathname === "/view" || router.pathname.startsWith("/view/");
   return (
     <>
       <Head>
@@ -79,7 +85,8 @@ export default function App({
               <main className={inter.className}>
                 <Toaster closeButton />
                 <TooltipProvider delayDuration={100}>
-                  {EXCLUDED_PATHS.includes(router.pathname) ? (
+                  {EXCLUDED_PATHS.includes(router.pathname) ||
+                  isViewerPath ? (
                     <Component {...pageProps} />
                   ) : (
                     <TeamProvider>

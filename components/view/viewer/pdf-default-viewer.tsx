@@ -248,7 +248,11 @@ export default function PDFViewer(props: any) {
   }
 
   async function updateNumPages(numPages: number) {
-    await fetch(`/api/teams/${teamInfo?.currentTeam?.id}/documents/update`, {
+    // Public views have no team context; never call the Access-gated
+    // dashboard API without a real team id.
+    const teamId = teamInfo?.currentTeam?.id;
+    if (!teamId) return;
+    await fetch(`/api/teams/${teamId}/documents/update`, {
       method: "POST",
       body: JSON.stringify({
         documentId: documentId,
