@@ -471,3 +471,24 @@ error → uncapped SWR retry storm on every public view page.
   team id resolves (public views POSTed to `/api/teams/undefined/...` forever).
   Deliberately dropped: viewer-side numPages self-heal (conversion pipeline sets
   it server-side).
+
+## Viewer: logo whitespace + Print (buoy.fish, ADR-0012 slice 3)
+
+Funder-facing viewer polish so a report reads as ours and can be kept/printed.
+
+- `components/view/nav.tsx` (patched) — the brand logo was `h-16 w-36` inside a
+  64px bar (edge-to-edge, zero whitespace); now `h-9 w-auto max-w-[10rem]` inside
+  a `py-3` container so it breathes (mirrors the access-form logo sizing). Adds a
+  **Print** button beside Download (both gated on `allowDownload`).
+- `lib/hooks/use-disable-print.ts` + `components/view/document-view.tsx` (patched)
+  — the print block was unconditional (every link printed blank). It now takes an
+  `enabled` flag; `document-view` passes `!link.allowDownload`, so links that
+  permit download can also print while screenshot/watermark-protected links keep
+  the block.
+- `lib/utils/download-document.ts` (added `printFromLinkEndpoint`) — opens the
+  original PDF (same artifact the Download button serves, via
+  `/api/links/download`) in a new tab for the browser's native print; the viewer
+  shows converted page images, so the original file is the printable one.
+
+Download itself needed no fork change — it was already wired on `allowDownload`;
+the app side now mints report links with `allowDownload: true`.

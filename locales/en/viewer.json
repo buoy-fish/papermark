@@ -8,6 +8,7 @@
     "zoomOut": "Zoom out",
     "fullscreen": "Fullscreen",
     "downloadDocument": "Download document",
+    "printDocument": "Print document",
     "teamMemberTooltip": "Skipped verification because you are a team member; no analytics will be collected",
     "changeLanguage": "Change language"
   },
@@ -16,7 +17,10 @@
     "preparingDownloadWatermark": "Preparing download with watermark...",
     "downloadSuccess": "File downloaded successfully",
     "downloadFailed": "Failed to download file",
-    "cannotDownloadPreview": "You cannot download documents in preview mode."
+    "cannotDownloadPreview": "You cannot download documents in preview mode.",
+    "preparingPrint": "Opening for printing...",
+    "printReady": "Opened in a new tab — use your browser's print",
+    "printFailed": "Failed to open for printing"
   },
   "downloadOnly": {
     "title": "Download Document",
