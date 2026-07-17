@@ -55,6 +55,27 @@ export type DEFAULT_DOCUMENT_VIEW_TYPE = {
   viewerId?: string;
 };
 
+// buoy fork (ADR-0012 slice 4): pull the email out of an emailed-view token for
+// prefill/auto-submit. Decode only — the server verifies the HMAC. Never trust
+// this value for anything but populating the email field.
+function decodeVtEmail(vt?: string): string | null {
+  if (!vt) return null;
+  try {
+    const b64 = vt.split(".")[0].replace(/-/g, "+").replace(/_/g, "/");
+    const payload = JSON.parse(
+      decodeURIComponent(
+        atob(b64)
+          .split("")
+          .map((c) => "%" + c.charCodeAt(0).toString(16).padStart(2, "0"))
+          .join(""),
+      ),
+    );
+    return typeof payload.e === "string" ? payload.e : null;
+  } catch {
+    return null;
+  }
+}
+
 export default function DocumentView({
   link,
   userEmail,
@@ -127,6 +148,13 @@ export default function DocumentView({
   const [code, setCode] = useState<string | null>(null);
   const [isInvalidCode, setIsInvalidCode] = useState<boolean>(false);
 
+  // buoy fork (ADR-0012 slice 4): an emailed-view token in the URL skips OTP on
+  // first open. Read it and the email it carries (decoded client-side only to
+  // prefill + auto-submit; the server verifies the signature).
+  const vt =
+    typeof router.query.vt === "string" ? router.query.vt : undefined;
+  const vtEmail = decodeVtEmail(vt);
+
   const handleSubmission = async (): Promise<void> => {
     setIsLoading(true);
     const response = await fetch("/api/views", {
@@ -136,7 +164,7 @@ export default function DocumentView({
       },
       body: JSON.stringify({
         ...data,
-        email: data.email ?? verifiedEmail ?? userEmail ?? null,
+        email: data.email ?? verifiedEmail ?? userEmail ?? vtEmail ?? null,
         linkId: link.id,
         documentId: document.id,
         documentName: document.name,
@@ -150,6 +178,7 @@ export default function DocumentView({
         code: code ?? undefined,
         token: verificationToken ?? undefined,
         verifiedEmail: verifiedEmail ?? undefined,
+        vt: vt ?? undefined,
       }),
     });
 
@@ -224,6 +253,18 @@ export default function DocumentView({
         setSubmitted(true);
         setVerificationRequested(false);
         setIsLoading(false);
+
+        // vt (buoy fork): drop the token from the URL once consumed — pm_vft
+        // now owns repeat access, and a bare link shouldn't keep a live token
+        // in history / on copy.
+        if (vt) {
+          const { vt: _consumed, ...rest } = router.query;
+          void router.replace(
+            { pathname: router.pathname, query: rest },
+            undefined,
+            { shallow: true },
+          );
+        }
       }
     } else {
       const data = await response.json();
@@ -252,12 +293,14 @@ export default function DocumentView({
   // If link is not submitted and does not have email / password protection, show the access form
   useEffect(() => {
     if (!didMount.current) {
-      if ((!submitted && !isProtected) || token || previewToken) {
+      // vt (buoy fork): an emailed link opens straight through — the token
+      // carries the email, so no form step is needed on first open.
+      if ((!submitted && !isProtected) || token || previewToken || vt) {
         handleSubmission();
       }
       didMount.current = true;
     }
-  }, [submitted, isProtected, token, previewToken]);
+  }, [submitted, isProtected, token, previewToken, vt]);
 
   // Components to render when email is submitted but verification is pending
   if (verificationRequested) {

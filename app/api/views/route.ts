@@ -6,6 +6,7 @@ import { ipAddress, waitUntil } from "@vercel/functions";
 import { getServerSession } from "next-auth";
 
 import { hashToken } from "@/lib/api/auth/token";
+import { verifyEmailedViewToken } from "@/lib/auth/view-token";
 import { authOptions } from "@/lib/auth/auth-options";
 import {
   collectFingerprintHeaders,
@@ -96,10 +97,11 @@ export async function POST(request: NextRequest) {
     };
 
     // Email Verification Data
-    const { code, token, verifiedEmail } = data as {
+    const { code, token, verifiedEmail, vt } = data as {
       code?: string;
       token?: string;
       verifiedEmail?: string;
+      vt?: string;
     };
 
     // Fetch the link to verify the settings
@@ -454,10 +456,45 @@ export async function POST(request: NextRequest) {
         }
       }
 
+      // buoy fork (ADR-0012 slice 4): an emailed-view token (?vt=) lets the
+      // recipient skip the OTP on first open — same trust as the code, embedded
+      // by us at send time. Verify BEFORE the OTP request; on any failure fall
+      // through to the normal OTP flow (isEmailVerified stays false).
+      if (link.emailAuthenticated && !code && !token && vt) {
+        const ipAddressValue = ipAddress(request);
+        const { success } = await ratelimit(10, "1 m").limit(
+          `vt:${ipAddressValue}`,
+        );
+        if (success) {
+          const verified = verifyEmailedViewToken(vt, linkId);
+          if (
+            verified &&
+            effectiveEmail &&
+            verified.email.toLowerCase() === effectiveEmail.toLowerCase()
+          ) {
+            // Mint the SAME 23h repeat-access token the code path mints, so the
+            // pm_vft cookie is set and revisits skip verification token-free.
+            const emailToken = newId("email");
+            hashedVerificationToken = hashToken(emailToken);
+            const tokenExpiresAt = new Date();
+            tokenExpiresAt.setHours(tokenExpiresAt.getHours() + 23);
+            await prisma.verificationToken.create({
+              data: {
+                token: hashedVerificationToken,
+                identifier: `link-verification:${linkId}:${link.teamId}:${effectiveEmail}`,
+                expires: tokenExpiresAt,
+              },
+            });
+            isEmailVerified = true;
+          }
+        }
+      }
+
       // Request OTP Code for email verification if
       // 1) email verification is required and
       // 2) code is not provided or token not provided
-      if (link.emailAuthenticated && !code && !token) {
+      // 3) a valid ?vt= token did not already verify (buoy fork)
+      if (link.emailAuthenticated && !code && !token && !isEmailVerified) {
         const ipAddressValue = ipAddress(request);
 
         // Rate limit per email/link combination (1 per 30 seconds) to prevent OTP flooding
