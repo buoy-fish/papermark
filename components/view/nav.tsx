@@ -13,6 +13,7 @@ import {
   Maximize,
   MessageCircle,
   Printer,
+  Share2,
   Slash,
   ZoomInIcon,
   ZoomOutIcon,
@@ -41,6 +42,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
+import ShareReportDialog from "./share-report-dialog";
 import PapermarkSparkle from "../shared/icons/papermark-sparkle";
 import {
   Breadcrumb,
@@ -124,7 +126,13 @@ export default function Nav({
 
   const { t } = useTranslation("viewer");
   const [showConversations, setShowConversations] = useState(false);
+  const [showShare, setShowShare] = useState(false);
   const navColorPalette = createAdaptiveSurfacePalette(brand?.brandColor);
+
+  // buoy fork: report viewers may forward their report to a colleague. Offered
+  // on real (non-preview, non-dataroom) document views where we have a view to
+  // attribute the share to.
+  const canShare = !isDataroom && !isPreview && Boolean(linkId && viewId);
 
   // Extract the dataroom path from the URL
   // This regex captures everything before "/d/" in the path
@@ -368,6 +376,17 @@ export default function Nav({
               </>
             ) : null}
 
+            {canShare ? (
+              <Button
+                onClick={() => setShowShare(true)}
+                className="size-8 bg-gray-900 text-white hover:bg-gray-900/80 sm:size-10"
+                size="icon"
+                title={t("nav.shareDocument", "Share this report")}
+              >
+                <Share2 className="size-4 sm:size-5" />
+              </Button>
+            ) : null}
+
             {!isMobile && handleZoomIn && handleZoomOut && (
               <div className="flex gap-1">
                 <TooltipProvider delayDuration={50}>
@@ -469,6 +488,15 @@ export default function Nav({
           isEnabled={true}
           isOpen={showConversations}
           onOpenChange={setShowConversations}
+        />
+      ) : null}
+
+      {canShare ? (
+        <ShareReportDialog
+          open={showShare}
+          onOpenChange={setShowShare}
+          linkId={linkId}
+          viewId={viewId}
         />
       ) : null}
     </nav>

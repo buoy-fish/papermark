@@ -492,3 +492,28 @@ Funder-facing viewer polish so a report reads as ours and can be kept/printed.
 
 Download itself needed no fork change — it was already wired on `allowDownload`;
 the app side now mints report links with `allowDownload: true`.
+
+## Viewer: Share a report to a new recipient (buoy.fish, ADR-0012 slice 3)
+
+A funder forwards their report to a colleague from the viewer. We never hand the
+sharer's own link over — the app mints a FRESH per-recipient tracked link and
+emails it, so the new viewer verifies as themselves and their opens attribute
+separately.
+
+- `components/view/share-report-dialog.tsx` (added) — Share dialog: recipient
+  email + a pre-drafted, editable note. Posts `/api/links/share`.
+- `components/view/nav.tsx` (patched) — a Share button (Share2) beside
+  Download/Print, shown on real document views (`!isDataroom && !isPreview &&
+  linkId && viewId`); renders the dialog.
+- `pages/api/links/share.ts` (added) — verifies the sharer's link session
+  exactly like the download route (DOCUMENT_LINK only, session + view match +
+  email-verified), then relays a signed request to app.buoy.fish.
+- `lib/webhook/report-share.ts` (added) — `sendReportShareWebhook`, the same
+  HMAC-signed channel as the view webhook (`REPORT_WEBHOOK_URL/SECRET`),
+  discriminated by `event: "share_requested"`; awaited so the viewer learns if
+  the share landed.
+
+⚠️ Deploy: `/api/links/share` must be on the Cloudflare Access **bypass** list
+(like `/api/links/download` and `/api/views`) or funders get bounced to the
+Access login. App side: `app.buoy.fish` receives `share_requested` at
+`/api/papermark/webhook` (already built) and mints + emails the new link.

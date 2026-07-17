@@ -9,8 +9,20 @@
     "fullscreen": "Fullscreen",
     "downloadDocument": "Download document",
     "printDocument": "Print document",
+    "shareDocument": "Share this report",
     "teamMemberTooltip": "Skipped verification because you are a team member; no analytics will be collected",
     "changeLanguage": "Change language"
+  },
+  "share": {
+    "title": "Share this report",
+    "description": "They'll receive their own secure link and confirm their email to open it.",
+    "emailLabel": "Their email",
+    "messageLabel": "Message",
+    "defaultMessage": "I wanted to share this efficacy report with you — I thought you'd find it worth a look.",
+    "cancel": "Cancel",
+    "send": "Send report",
+    "sent": "Report sent — they'll get their own secure link",
+    "failed": "Could not send the report"
   },
   "toasts": {
     "preparingDownload": "Preparing download...",
