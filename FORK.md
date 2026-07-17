@@ -546,3 +546,24 @@ OTP flow.
 
 ⚠️ Deploy: set `VIEW_TOKEN_SECRET` in the box `.env` to the SAME value as bao
 `email_link_token_secret`, then rebuild. Distinct from `REPORT_WEBHOOK_SECRET`.
+
+## Notification-email links point at OUR dashboard, not upstream (buoy.fish)
+
+Papermark's transactional email templates hardcode `https://app.papermark.com`
+throughout (`components/emails/*.tsx`). The one our fork actually sends is the
+owner "New Document Visitor" notification (`viewed-document.tsx`, via
+`lib/emails/send-viewed-document.ts`, fired on every tracked view) — its "See my
+document insights" button linked to `app.papermark.com/documents/<id>`, i.e.
+upstream's login, not ours.
+
+- `components/emails/viewed-document.tsx` (patched) — the insights button now
+  uses `process.env.NEXT_PUBLIC_MARKETING_URL` (build arg = `https://paper.buoy.fish`,
+  compose.yaml) with an `app.papermark.com` fallback.
+
+⚠️ Systemic: ~20 other email templates (onboarding, dataroom, trial, year-in-
+review, download-ready, team-invitation…) still hardcode `app.papermark.com`.
+Our fork does not send those flows, so they're currently unreachable — but any
+new notification we enable inherits the bug. Same family as the EMAIL_FROM fix
+(fork PR #3): audit every hardcoded upstream URL/domain when enabling a flow.
+Build-time value (NEXT_PUBLIC_*), so a box rebuild is required for the link to
+change.
