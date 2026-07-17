@@ -112,8 +112,10 @@ const getAuthOptions = (req: NextApiRequest): NextAuthOptions => {
         }
 
         // Apply rate limiting for signin attempts
+        // buoy fork: skip for cf-access — identity is pre-verified by Cloudflare
+        // Access at the edge; the limiter exists to stop credential spray.
         try {
-          if (req) {
+          if (req && account?.provider !== "cf-access") {
             const clientIP = getIpAddress(req.headers);
             const rateLimitResult = await checkRateLimit(
               rateLimiters.auth,

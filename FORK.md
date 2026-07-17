@@ -92,9 +92,25 @@ Host origin is tunnel-only (ADR-0001) — nothing but Cloudflare can set it.
 Config: `PAPERMARK_SSO_ALLOWED_DOMAIN=buoy.fish` (and optional
 `PAPERMARK_SHARED_TEAM_SLUG` / `PAPERMARK_SHARED_TEAM_NAME`).
 
-> NOT YET VERIFIED end-to-end (needs the live stack): confirm the Access header
-> reaches the NextAuth callback POST, the session cookie name/secure flags match
-> what `getToken` expects, and there's no `/sso` ↔ middleware redirect loop.
+> VERIFIED end-to-end live 2026-07-17: the Access header reaches the NextAuth
+> callback POST (direct POST to `/api/auth/callback/cf-access` returned the
+> dashboard redirect), cookie names/secure flags match `getToken`, and
+> `/sso?next=...` auto-signs-in and lands on the target. All shim endpoints sit
+> under the same identity-gated Access app, so the header rides every one.
+>
+> Resilience (added after the 2026-07-16 no-auto-login incident, most likely the
+> per-IP auth rate limiter tripping on a heavy testing day and then sticking):
+> - `lib/middleware/app.ts` also walks in a CF-verified visitor stranded ON
+>   `/login` (skipped when `?error=` is present — the loop guard; `next` is
+>   same-origin-normalized before forwarding).
+> - `pages/sso.tsx` signs in with `redirect: false`, fires exactly once
+>   (strict-mode ref guard), validates `next` as same-origin, treats
+>   `ok && !error` as the only success, and on failure renders a visible
+>   "Try again" / "Go to login?error=walkin_failed" state instead of silently
+>   bouncing — no auto-retry, no token burn.
+> - `pages/api/auth/[...nextauth].ts` skips the per-IP sign-in rate limiter for
+>   the `cf-access` provider only (identity pre-verified by Access at the edge;
+>   the limiter exists for credential spray).
 
 ## 4b. Disabled-integration patches (build + runtime safety)
 
@@ -433,3 +449,25 @@ Two additions so `app.buoy.fish` can deliver efficacy reports as tracked links:
   (which is plan-gated and DB-configured). Reuses `createWebhookSignature`;
   sends `X-Papermark-Signature: sha256=<hex>` over the exact body. No-op unless
   `REPORT_WEBHOOK_URL` + `REPORT_WEBHOOK_SECRET` are set (see `.env.example`).
+
+## Public viewer must not touch Access-gated dashboard APIs (buoy.fish)
+
+`/view/*` is the public funder surface (path-scoped Access Bypass); everything
+else — including `/api/teams` — is identity-gated. Upstream mounts the
+dashboard's `TeamProvider` app-wide and its `useTeams()` SWR fires
+`GET /api/teams` whenever a session cookie resolves, which for a staff browser
+without a live Access session means a cloudflareaccess.com redirect → CORS
+error → uncapped SWR retry storm on every public view page.
+
+- `pages/_app.tsx` (patched) — `EXCLUDED_PATHS` is exact-match and only lists
+  bare `/view`; real viewer routes are templated (`/view/[linkId]`, ...). Added
+  `isViewerPath` (`=== "/view" || startsWith("/view/")`) so ALL `/view` routes
+  skip `TeamProvider`/`PostHogGroupSync`/`UploadProgressProvider`.
+  `useTeam()` consumers degrade to the context default (`currentTeam: null`) —
+  safe, but a future dashboard-ish component under `/view/*` would silently get
+  empty team state.
+- `components/view/viewer/pdf-default-viewer.tsx` (patched) — the numPages
+  backfill POST to `/api/teams/<id>/documents/update` now early-returns when no
+  team id resolves (public views POSTed to `/api/teams/undefined/...` forever).
+  Deliberately dropped: viewer-side numPages self-heal (conversion pipeline sets
+  it server-side).
