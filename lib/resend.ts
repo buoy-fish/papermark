@@ -45,24 +45,29 @@ export const sendEmail = async ({
   const html = await render(react);
   const plainText = toPlainText(html);
 
-  const fromAddress =
-    from ??
-    (marketing
-      ? "Marc from Papermark <marc@updates.papermark.com>"
-      : system
-        ? "Papermark <system@papermark.com>"
-        : verify
-          ? "Papermark <system@verify.papermark.com>"
-          : !!scheduledAt
-            ? "Marc Seitz <marc@papermark.com>"
-            : "Marc from Papermark <marc@papermark.com>");
+  // buoy.fish fork: every upstream fallback here was a papermark.com address —
+  // `system@verify.papermark.com` for verification codes, and `marc@papermark.com`
+  // (upstream's founder, personally) for everything else. A self-hosted instance
+  // must not send mail as a domain it does not own. Resend refuses to anyway
+  // ("The verify.papermark.com domain is not verified"), and because that refusal
+  // is only logged, the email-verification gate became a locked door with no key:
+  // a viewer entered their address and no code could ever arrive.
+  //
+  // One env-driven sender, defaulting to our verified domain — same shape as
+  // NEXT_PUBLIC_APP_BASE_HOST (see FORK.md). Upstream's marketing/system/verify
+  // split assumes several verified domains; a self-host has one.
+  const fromAddress = from ?? (process.env.EMAIL_FROM || "Buoy.Fish <noreply@buoy.fish>");
 
   try {
     const { data, error } = await resend.emails.send({
       from: fromAddress,
       to: test ? "delivered@resend.dev" : to,
       cc: cc,
-      replyTo: marketing ? "marc@papermark.com" : replyTo,
+      // buoy.fish fork: upstream forced replyTo to `marc@papermark.com` (its
+      // founder) for marketing sends. On a self-host that would point a
+      // recipient's reply at another company. Callers pass their own replyTo;
+      // absent one, Resend falls back to the From above.
+      replyTo: replyTo,
       subject,
       react,
       scheduledAt,
