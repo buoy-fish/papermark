@@ -19,7 +19,7 @@ export default function TeamInvitation({
   senderName,
   senderEmail,
   teamName,
-  url = "https://app.papermark.com",
+  url = "https://paper.buoy.fish",
 }: {
   senderName: string;
   senderEmail: string;

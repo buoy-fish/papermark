@@ -17,8 +17,8 @@ export default function DataroomNotification({
   dataroomName = "Example Data Room",
   documentName = "Example Document",
   senderEmail,
-  url = "https://app.papermark.com/datarooms/123",
-  unsubscribeUrl = "https://app.papermark.com/datarooms/123/unsubscribe",
+  url = "https://paper.buoy.fish/datarooms/123",
+  unsubscribeUrl = "https://paper.buoy.fish/datarooms/123/unsubscribe",
 }: {
   dataroomName: string;
   documentName: string | undefined;

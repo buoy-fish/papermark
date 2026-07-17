@@ -20,7 +20,7 @@ export const Footer = ({
           Don&apos;t want to get these emails?{" "}
           <Link
             className="text-neutral-700 underline"
-            href="https://app.papermark.com/account/general"
+            href="https://paper.buoy.fish/account/general"
           >
             Unsubscribe here.
           </Link>

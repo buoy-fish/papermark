@@ -558,12 +558,14 @@ upstream's login, not ours.
 
 - `components/emails/viewed-document.tsx` (patched) — the insights button now
   uses `process.env.NEXT_PUBLIC_MARKETING_URL` (build arg = `https://paper.buoy.fish`,
-  compose.yaml) with an `app.papermark.com` fallback.
+  compose.yaml) with a `paper.buoy.fish` fallback.
+- **Swept ALL of `components/emails/`**: every `app.papermark.com` (the dashboard
+  subdomain — 29 links across 21 templates: onboarding, dataroom, trial,
+  year-in-review, download/export-ready, team-invitation, domain-setup, footer…)
+  → `paper.buoy.fish`. A pure hostname swap, so it holds for both `` `...` ``
+  and `"..."` forms. **`www.papermark.com` (help articles + marketing) LEFT
+  intact** — those are real upstream docs/attribution, not our dashboard.
 
-⚠️ Systemic: ~20 other email templates (onboarding, dataroom, trial, year-in-
-review, download-ready, team-invitation…) still hardcode `app.papermark.com`.
-Our fork does not send those flows, so they're currently unreachable — but any
-new notification we enable inherits the bug. Same family as the EMAIL_FROM fix
-(fork PR #3): audit every hardcoded upstream URL/domain when enabling a flow.
-Build-time value (NEXT_PUBLIC_*), so a box rebuild is required for the link to
-change.
+Same family as the EMAIL_FROM fix (fork PR #3): upstream defaults assume
+upstream's domains. Build-time-inlined via `NEXT_PUBLIC_*`, so a box rebuild is
+required for the links to change.
